@@ -2,32 +2,125 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-
-/*
-原始迷宮所採用的字符定義如下：
-1. 字符'O'表示障礙物 (Obstacle)
-2. 字符'E'表示空格 (Empty cell)
-3. 字符'G'表示目標 (Goal)，抵達這個位置後，也視同一個可以行走的空格。
-   程式輸出所採用的字符定義如下：
-4. 字符'V'表示曾經走過的位置 (Visited)
-5. 字符'R'表示成功可行的路徑 (Route)
-*/
-struct Coordinate {
-  int y, x;  // 往下是正, 往右是正
-};
-
+#include <vector>
+#include <chrono> // count time
+#include <iomanip>
 void PrintTitle();
 void SkipSpace(std::string &str);
 std::string ReadInput();
 bool isNonNegInt (std::string s);
 
 
-// Class Declaration
+
+class Order {
+ private:
+  int oid;
+  int arrival;
+  int duration;
+  int timeout;
+ public:
+  Order() {}
+  ~Order() {}
+ void setOrder(int oid, int arrival, int duration, int timeout) {
+   this->oid = oid;
+   this->arrival = arrival;
+   this->duration = duration;
+   this->timeout = timeout; 
+ }
+int getOid() {
+   return oid;
+ }
+ int getArrival() {
+   return arrival;
+ }
+ int getDuration() {
+   return duration;
+ }
+ int getTimeout() {
+   return timeout;
+ }
+
+ void print() {
+    std::cout << "\t" << oid
+              << "\t" << arrival
+              << "\t" << duration
+              << "\t" << timeout << std::endl;
+    }
+};
+
+class AbortOrder {
+ private:
+  int oid;
+  int cid = 0;
+  int delay;
+  int abort;
+public:
+ AbortOrder(int oid, int cid, int delay, int abort) {
+   this->oid = oid;
+   this->cid = cid;
+   this->delay = delay;
+   this->abort = abort;
+ }
+ ~AbortOrder() {}
+ void setOrder(int oid, int cid, int delay, int abort) {
+   this->oid = oid;
+   this->cid = cid;
+   this->delay = delay;
+   this->abort = abort; 
+ }
+int getOid() {
+   return oid;
+ }
+ int getCid() {
+   return cid;
+ }
+ int getDelay() {
+   return delay;
+ }
+ int getAbort() {
+   return abort;
+ }
+};
+
+class TimeOutOrder {
+ private:
+  int oid;
+  int cid = 0;
+  int delay;
+  int departure;
+public:
+ TimeOutOrder(int oid, int cid, int delay, int departure) {
+    this->oid = oid;
+    this->cid = cid;
+    this->delay = delay;
+    this->departure = departure;
+ }
+
+ ~TimeOutOrder() {}
+ void setOrder(int oid, int cid, int delay, int departure) {
+   this->oid = oid;
+   this->cid = cid;
+   this->delay = delay;
+   this->departure = departure; 
+ }
+int getOid() {
+   return oid;
+ }
+ int getCid() {
+   return cid;
+ }
+ int getDelay() {
+   return delay;
+ }
+ int getDeparture() {
+   return departure;
+ }
+};
 
 class Queue {
  private: 
   struct QueueNode {
-   Coordinate coordinate_item;
+   Order order_item;
    QueueNode *next;
   }; // end QueueNode
   QueueNode *backPtr;
@@ -37,604 +130,303 @@ class Queue {
   Queue(const Queue& Q);
   ~Queue();
   bool isEmpty() const; // Queue operations
-  void enqueue(const Coordinate& newItem);
+  void enqueue(const Order& newItem);
   void dequeue();
-  void dequeue(Coordinate& queueFront);
-  void getFront(Coordinate& queueFront) const;
+  void dequeue(Order& queueFront);
+  void getFront(Order& queueFront) const;
+  int size();
 }; 
 
-class Stack{
- private:
-  struct StackNode{ 
-    Coordinate coordinate_item; // a coordinate(x, y)is an coordinate_item
-    StackNode *next;
-  }; // end StackNode
-  StackNode *topPtr;
-
- public:
-  Stack();
-  Stack(const Stack& aStack);
-  
-  ~Stack();
-  bool isEmpty();
-  void push(const Coordinate& newcoordinate_Item);
-  void pop();
-  void getTop(Coordinate& stackTop);
-  void pop(Coordinate& stackTop);
-}; // end Stack
-class Maze {
-  private:
-    char **maze_grid; // 採用 C++標準函式 new 動態配置陣列以儲存迷宮。
-    char **visited_grid;
-    char **route_grid;
-    bool can_go_to_goal = false;
-    int maze_rows;
-    int maze_columns;
-  public:
-    Maze() {}
-    ~Maze() {
-      // deleteMaze();
-    }
-    void deleteMaze() {
-      for (int i = 0; i < maze_rows; i++) {
-        delete[] maze_grid[i];
-        delete[] visited_grid[i];
-        delete[] route_grid[i];
-      }
-      delete[] maze_grid;
-      delete[] visited_grid;
-      delete[] route_grid;
-      can_go_to_goal = false;
-    }
-    void resetVisitRoutine() {
-      for (int i = 0; i < maze_rows; i++) {
-        delete[] visited_grid[i];
-        delete[] route_grid[i];
-      }
-      delete[] visited_grid;
-      delete[] route_grid;
-      visited_grid = new char*[maze_rows];
-      route_grid = new char*[maze_rows];
-      for (int i = 0; i < maze_rows; i++) {
-        visited_grid[i] = new char[maze_columns];
-        route_grid[i] = new char[maze_columns];
-        for (int j = 0; j < maze_columns; j++) {
-          visited_grid[i][j] = maze_grid[i][j];
-          route_grid[i][j] = maze_grid[i][j];
-        }
-      } 
-    }
-    bool fetchFile() {
-      std::ifstream in;
-      std:: cout << "Input a file number: ";
-      std::string file_num = ReadInput();
-      std::string txt_path = "input" + file_num + ".txt";
-      in.open(txt_path);
-      if(in.fail()){ 
-        std::cout << std::endl << txt_path + " does not exist!\n" << std::endl;
-        return false; 
-      }
-      in >>  maze_columns >> maze_rows;
-      maze_grid = new char*[maze_rows];
-      visited_grid = new char*[maze_rows];
-      route_grid = new char*[maze_rows];
-      for (int i = 0; i < maze_rows; i++) {
-        maze_grid[i] = new char[maze_columns];
-        visited_grid[i] = new char[maze_columns];
-        route_grid[i] = new char[maze_columns];
-        for (int j = 0; j < maze_columns; j++) {
-          in >> maze_grid[i][j];
-          visited_grid[i][j] = maze_grid[i][j];
-          route_grid[i][j] = maze_grid[i][j];
-        }
-      } 
-      in.close();
-      return true;
-    }
-    void bestRoutine(Stack path) {
-      Coordinate temp_coor;
-      while (!path.isEmpty()) {
-        path.getTop(temp_coor);
-        if (route_grid[temp_coor.y][temp_coor.x]!= 'G') route_grid[temp_coor.y][temp_coor.x] = 'R';
-        if (maze_grid[temp_coor.y][temp_coor.x]== 'G') {
-          route_grid[temp_coor.y][temp_coor.x] = 'G';
-          visited_grid[temp_coor.y][temp_coor.x]= 'G';
-        }
-        path.pop();
-      }
-    }
-    void Dfs() { // for task 1
-      Stack path;
-      Coordinate start;
-      start.y = 0;
-      start.x = 0;// y first, then x    
-      path.push(start);  
-      int dx[4] = {1, 0, -1, 0}; // 右下左上
-      int dy[4] = {0, 1, 0, -1};  
-
-      int dir = 0; //右邊開始
-    
-      while (!path.isEmpty()) {
-        Coordinate cur;
-        path.getTop(cur);
-        
-        if (visited_grid[cur.y][cur.x] == 'G') {
-          can_go_to_goal = true;
-          if (!path.isEmpty())  {
-            path.pop();
-          }
-          bestRoutine(path);
-          
-          return;
-        }
-        visited_grid[cur.y][cur.x] = 'V';
-        bool moved = false;
-        for (int i = 0; i < 4; i++) {
-          int ndir = (dir + i) % 4;
-          
-          int nx = cur.x + dx[ndir];
-          int ny = cur.y + dy[ndir];
-          
-          if ((0 <= nx && nx < maze_columns) && (0 <= ny && ny < maze_rows) && (visited_grid[ny][nx] != 'V') && (visited_grid[ny][nx] != 'O')) {
-            Coordinate temp;
-            temp.y = ny;
-            temp.x = nx;
-            dir = ndir;
-            if (visited_grid[temp.y][temp.x] == 'G') {
-              can_go_to_goal = true;
-              bestRoutine(path);
-              return;
-            } else {
-              visited_grid[temp.y][temp.x] = 'V';
-            }
-       
-            path.push(temp);
-            moved = true;
-            break;
-          }
-        }
-        if (!moved) {
-          path.pop();
-        }
-      }
-      can_go_to_goal = false;
-    }
-    void Dfs2(int int_input_goals, bool &success) { // for task 2
-      bool has_visited_goal[maze_rows][maze_columns];
-      for (int i = 0; i < maze_rows; i++) {
-        for (int j = 0; j < maze_columns; j++) {
-          has_visited_goal[i][j] = false;
-        }
-      }
-      resetVisitRoutine();
-      int count_goal = 0;
-      Stack path;
-      Coordinate start;
-      start.y = 0;
-      start.x = 0;// y first, then x    
-      path.push(start);  
-      int dx[4] = {1, 0, -1, 0}; // 右下左上
-      int dy[4] = {0, 1, 0, -1};  
-
-      int dir = 0; //右邊開始
-    
-      while (!path.isEmpty()) {
-        Coordinate cur;
-        path.getTop(cur);
-        
-        if (visited_grid[cur.y][cur.x] == 'G' && !has_visited_goal[cur.y][cur.x]) {
-          count_goal++;
-          has_visited_goal[cur.y][cur.x] = true;
-          if (count_goal == int_input_goals) {
-            success = true;
-            if (!path.isEmpty())  {
-              path.pop();
-            }
-            bestRoutine(path);
-            return;
-          }
-        }
-        visited_grid[cur.y][cur.x] = 'V';
-        bool moved = false;
-        for (int i = 0; i < 4; i++) {
-          int ndir = (dir + i) % 4;
-          
-          int nx = cur.x + dx[ndir];
-          int ny = cur.y + dy[ndir];
-          
-          if ((0 <= nx && nx < maze_columns) && (0 <= ny && ny < maze_rows) && (visited_grid[ny][nx] != 'V') &&(visited_grid[ny][nx] != 'O')) {
-            Coordinate temp;
-            temp.y = ny;
-            temp.x = nx;
-            dir = ndir;
-            if (visited_grid[temp.y][temp.x] == 'G' && !has_visited_goal[temp.y][temp.x]) {
-              count_goal++;
-              has_visited_goal[temp.y][temp.x] = true;
-              if (count_goal == int_input_goals) {
-                success = true;
-                bestRoutine(path);
-                return;
-              }
-            } else {
-              visited_grid[temp.y][temp.x]= 'V';
-            }
-       
-            path.push(temp);
-            moved = true;
-            break;
-          }
-        }
-        if (!moved) {
-          path.pop();
-        }
-      }
-      success = false;
-      for (int i = 0; i < maze_rows; i++) {
-        for (int j = 0; j < maze_columns; j++) {
-          if (maze_grid[i][j] == 'G') visited_grid[i][j] = 'G';
-        }
-      }
-    }
-    void Dfs3(int &total_goal) { // for task 3
-      resetVisitRoutine();
-      Stack path;
-      Coordinate start;
-      start.y = 0;
-      start.x = 0;// y first, then x    
-      path.push(start);  
-      int dx[4] = {1, 0, -1, 0}; // 右下左上
-      int dy[4] = {0, 1, 0, -1};  
-
-      int dir = 0; //右邊開始
-    
-      while (!path.isEmpty()) {
-        Coordinate cur;
-        path.getTop(cur);
-        
-        if (visited_grid[cur.y][cur.x] == 'G') {
-          total_goal++;
-        }
-        visited_grid[cur.y][cur.x] = 'V';
-        bool moved = false;
-        for (int i = 0; i < 4; i++) {
-          int ndir = (dir + i) % 4;
-          
-          int nx = cur.x + dx[ndir];
-          int ny = cur.y + dy[ndir];
-          
-          if ((0 <= nx && nx < maze_columns) && (0 <= ny && ny < maze_rows) && (visited_grid[ny][nx] != 'V') &&(visited_grid[ny][nx] != 'O')) {
-            Coordinate temp;
-            temp.y = ny;
-            temp.x = nx;
-            dir = ndir;
-            if (visited_grid[temp.y][temp.x] == 'G') {
-              total_goal++;
-            } 
-            visited_grid[temp.y][temp.x]= 'V';
-            path.push(temp);
-            moved = true;
-            break;
-          }
-        }
-        if (!moved) {
-          path.pop();
-        }
-      }
-      for (int i = 0; i < maze_rows; i++) {
-        for (int j = 0; j < maze_columns; j++) {
-          if (maze_grid[i][j] == 'G') visited_grid[i][j] = 'G';
-        }
-      }
-    }
-
-
-
-
-
-    void Dfs4() { // for task 4 (test) + backtracking
-     int count_path = 0;
-      Stack path;
-      Coordinate start;
-      start.y = 0;
-      start.x = 0;// y first, then x    
-      path.push(start);  
-      bool visited[maze_rows][maze_columns];
-      int dx[4] = {1, 0, -1, 0}; // 右下左上
-      int dy[4] = {0, 1, 0, -1};  
-      int dir = 0; //右邊開始
-      int dist[maze_rows][maze_columns];
-      Coordinate prev[maze_rows][maze_columns];
-      for (int i = 0; i < maze_rows; i++) {
-        for (int j = 0; j < maze_columns; j++) {
-          dist[i][j] = 0;
-          prev[i][j].y = -1;
-          prev[i][j].x = -1;
-          visited[i][j] = false;
-        }
-      }
-      dist[start.y][start.x] = 1;
-      visited_grid[0][0] = 'V';
-      visited[0][0] = true;
-      Coordinate cur; 
-      
-      while (!path.isEmpty()) {
-        path.getTop(cur);
-        bool moved = false;
-        for (int i = 0; i < 4; i++) {
-          int ndir = (dir + i) % 4;
-          int nx = cur.x + dx[ndir];
-          int ny = cur.y + dy[ndir];
-          if ((0 <= nx && nx < maze_columns) && (0 <= ny && ny < maze_rows) && (visited_grid[ny][nx] == 'E' || visited_grid[ny][nx] == 'G')) {
-            Coordinate next;
-            next.y = ny;
-            next.x = nx;
-            visited[ny][nx] = true;
-            dir = ndir;
-            prev[ny][nx] = cur;
-            dist[ny][nx] = dist[cur.y][cur.x] + 1;
-            count_path++;
-
-            if (visited_grid[next.y][next.x] == 'G') {
-              can_go_to_goal = true;
-              break;
-              
-            } else {
-              if (visited_grid[ny][nx] != 'G'){
-                visited_grid[ny][nx] = 'V';
-              }
-            }
-            path.push(next);
-            moved = true;
-            break;
-          }
-        }
-        if (can_go_to_goal) break;
-        if (!moved) {
-          path.pop();
-        }
-      }
-
-      int dist_temp[maze_rows][maze_columns];
-      for (int i = 0; i < maze_rows; i++) {
-          for (int j = 0; j < maze_columns; j++) {
-            dist_temp[i][j] =  dist[i][j];
-          }
-      }
-
-      dir = 0;
-      while (!path.isEmpty()) { 
-        /*for (int i = 0; i < maze_rows; i++) {
-          for (int j = 0; j < maze_columns; j++) {
-            if (dist_temp[i][j] != 0)  dist[i][j] = dist_temp[i][j];
-          }
-        }*/
-        /*for (int i = 0; i < maze_rows; i++) {
-          for (int j = 0; j < maze_columns; j++) {
-            std::cout << dist[i][j] << "    ";
-          }
-          printf("\n");
-        }*/
-       
-        bool moved = false;   
-        path.getTop(cur);
-        if (dist[cur.y][cur.x] >= count_path) {
-          path.pop();
-          continue;
-        }
-        
-        for (int i = 0; i < 4; i++) {
-          int ndir = (dir + i) % 4;
-          int nx = cur.x + dx[ndir];
-          int ny = cur.y + dy[ndir];
-          
-
-          if ((0 <= nx && nx < maze_columns) && (0 <= ny && ny < maze_rows) &&
-          ((visited_grid[ny][nx] == 'E' || visited_grid[ny][nx] == 'G') ||
-         (visited_grid[ny][nx] == 'V' && 
-        ((dist[ny][nx] - dist[cur.y][cur.x]) != 1 && (dist[ny][nx] - dist[cur.y][cur.x]) != -1 && dist_temp[ny][nx] == 0)))) {
-
-            Coordinate next;
-            next.y = ny;
-            next.x = nx;
-            dir = ndir;
-            dist[ny][nx] = dist[cur.y][cur.x] + 1;
-         
-
-            if (visited_grid[next.y][next.x] == 'G' ) {
-              if (dist[cur.y][cur.x] < count_path) {
-                count_path = dist[cur.y][cur.x];
-              }
-              moved = true;
-            } else {
-              
-              visited_grid[ny][nx] = 'V';
-              
-            }
-            if (dist[ny][nx] < count_path) {
-               moved = true;
-               path.push(next);
-               break;
-            }
-          }
-        }
-        if (!moved) {
-          path.pop();
-        }
-
-     }
-      for (int i = 0; i < maze_rows; i++) {
-        for (int j = 0; j < maze_columns; j++) {
-          std::cout << visited_grid[i][j];
-        }
-        printf("\n");
-      }
-    }
-    void assist_Dfs4 () {
-
-
-
-
-    }
-
-
-
-
-
-    void Bfs() { // for task4
-      Queue q;
-      Coordinate start;
-      start.y = 0;
-      start.x = 0;// y first, then x  
-      q.enqueue(start);
-
-      int dx[4] = {-1, 0, 1, 0}; 
-      int dy[4] = {0, -1, 0, 1};
-
-      int dist[maze_rows][maze_columns];
-      Coordinate prev[maze_rows][maze_columns];
-      for (int i = 0; i < maze_rows; i++) {
-        for (int j = 0; j < maze_columns; j++) {
-          dist[i][j] = -1;
-          prev[i][j].y = -1;
-          prev[i][j].x = -1;
-        }
-      }
-      dist[start.y][start.x] = 1;
-      visited_grid[start.y][start.x] = 'V';
-      Coordinate goal;
-      while (!q.isEmpty()) {
-        Coordinate cur;
-        q.dequeue(cur);
-
-        if (visited_grid[cur.y][cur.x] == 'G') {
-          can_go_to_goal = true;
-          goal = cur;
-          break;
-        }
-
-        for (int k = 0; k < 4; k++) {
-          int ny = cur.y + dy[k];
-          int nx = cur.x + dx[k];
-          if (ny >= 0 && ny < maze_rows && nx >= 0 && nx < maze_columns &&
-              (visited_grid[ny][nx] == 'E' || visited_grid[ny][nx] == 'G') &&
-              dist[ny][nx] == -1) {
-            dist[ny][nx] = dist[cur.y][cur.x] + 1;
-            prev[ny][nx] = cur;
-            Coordinate temp;
-            temp.y = ny;
-            temp.x = nx;
-            q.enqueue(temp);
-            if (visited_grid[ny][nx] != 'G')
-              visited_grid[ny][nx] = 'V';
-          }
-        }
-      }
-  
-      if (can_go_to_goal) {
-        printf("\n");
-        Coordinate cur = goal;
-        while (!(cur.y == -1 && cur.x == -1)) {
-          if (visited_grid[cur.y][cur.x] != 'G')
-            route_grid[cur.y][cur.x] = 'R';
-          cur = prev[cur.y][cur.x];
-        }
-        for (int i = 0; i < maze_rows; i++) {
-          for (int j = 0; j < maze_columns; j++) {
-            std::cout << route_grid[i][j];
-          }
-          printf("\n");
-        }
-        printf("\n");
-        std::cout << "Shortest path length = " << dist[goal.y][goal.x];
-        printf("\n\n");
-      } else {
-        std::cout << "\n\n### There is no path to find a goal! ### \n" << std::endl;
-      }
-    }
-
-    void taskOne() { // 從左上角出發(依照指定行走模式)走到目標 G 的一條路徑
-      Dfs();
-      for (int i = 0; i < maze_rows; i++) {
-        for (int j = 0; j < maze_columns; j++) {
-          std::cout << visited_grid[i][j];
-        }
-        printf("\n");
-      } 
-      
-      if (can_go_to_goal) {
-        printf("\n");
-        for (int i = 0; i < maze_rows; i++) {
-          for (int j = 0; j < maze_columns; j++) {
-            std::cout << route_grid[i][j];
-          }
-          printf("\n");
-        } 
-      }
-      printf("\n\n");
-    }
-
-    void taskTwo() { // 從左上角出發(依照指定行走模式)走過 N 個目標的一條路徑
-      int int_goal_input;
-      bool success = false;
-      std::string goal_input;
-      while (1) {
-        std::cout << "Number of G (goals): ";
-        goal_input = ReadInput();
-        
-        if (isNonNegInt(goal_input)) {
-          int_goal_input = std::stoi(goal_input);
-          if (int_goal_input < 1 || int_goal_input > 100) {
-            std::cout << "\n### The number must be in [1,100] ###\n\n";
-            continue;
-          }
-          break;
-        } else {
-          printf("\n");
-          continue;
-        }
-      }
-      Dfs2(int_goal_input, success);
-      for (int i = 0; i < maze_rows; i++) {
-        for (int j = 0; j < maze_columns; j++) {
-          std::cout << visited_grid[i][j];
-        }
-        printf("\n");
-      } 
-      
-      if (success) {
-        printf("\n");
-        for (int i = 0; i < maze_rows; i++) {
-          for (int j = 0; j < maze_columns; j++) {
-            std::cout << route_grid[i][j];
-          }
-          printf("\n");
-        } 
-      }
-      printf("\n");
-    }
-
-    void taskThree() { // 從左上角出發(依照指定行走模式)走過所有目標 G 以計算總數
-      int total_goal = 0;
-      Dfs3(total_goal);
-      for (int i = 0; i < maze_rows; i++) {
-        for (int j = 0; j < maze_columns; j++) {
-          std::cout << visited_grid[i][j];
-        }
-        printf("\n");
-      } 
-      std::cout << "\nThe maze has " << total_goal << " goal(s) in total.\n\n";
-    }
-
-    void taskFour() { // 從左上角出發走到目標 G 的一條最短路徑
-      Dfs4();
-      resetVisitRoutine();
-      Bfs();
-    }
+struct Chef {
+    Queue q;
+    int idle_time = 0;
 };
+
+
+
+
+class Goods {
+ private:
+  std::vector<Order> orders;
+  std::string title;
+  int total_order = 0;
+  
+  std::string filNum;
+  long long writing_data_time = 0;
+  long long sorting_data_time = 0;
+  long long reading_data_time = 0;
+ public:
+  Goods(){};
+  ~Goods(){};
+  void ResetGoods() {
+    total_order = 0;
+    orders.clear();
+    orders.shrink_to_fit();
+
+  }
+  void addOrder(const Order& o) {
+    orders.push_back(o);
+    total_order += 1;
+  }
+
+  bool fetchFile() {
+    auto start = std::chrono::high_resolution_clock::now();
+    std::ifstream in;
+    std:: cout << "Input a file number (e.g., 401, 402, 403, ...): ";
+    std::string file_num = ReadInput();
+    std::string txt_path = "input" + file_num + ".txt";
+    in.open(txt_path);
+    if(in.fail()){ 
+      std::cout << std::endl << txt_path + " does not exist!\n" << std::endl;
+      return false; 
+    }
+    filNum = file_num;
+    std::getline(in, title);
+    int oid, arrival, duration, timeout;
+    while (in >> oid >> arrival >> duration >> timeout) {
+      Order o;
+      o.setOrder(oid, arrival, duration, timeout);
+      orders.push_back(o);
+      total_order++;
+    }       
+    in.close();
+    auto end = std::chrono::high_resolution_clock::now();
+    auto time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    reading_data_time = time.count();
+    return true;
+  }
+
+  void ShellSort() { // 希爾排序，先依 Arrival 再依 OID
+    auto start = std::chrono::high_resolution_clock::now();
+    int gap = total_order / 2;
+
+    for (; gap > 0; gap /= 2) {
+        for (int i = gap; i < total_order; i++) {
+            Order tmp = orders[i];
+            int j = i;
+
+            // 雙重比較：先 Arrival，再 OID
+            while (j >= gap && 
+              (tmp.getArrival() < orders[j - gap].getArrival() ||
+              (tmp.getArrival() == orders[j - gap].getArrival() && tmp.getOid() < orders[j - gap].getOid()))) 
+            {
+                orders[j] = orders[j - gap];
+                j -= gap;
+            }
+
+            orders[j] = tmp;
+        }
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    sorting_data_time = time.count();
+}
+
+
+
+  void OutputFile() {
+    auto start = std::chrono::high_resolution_clock::now();
+    std::string sorting_path = "sorted" + filNum + ".txt";
+     std::ofstream outputFile(sorting_path);
+     outputFile <<"OID\tArrival\tDuration\tTimeOut\n";
+     for (int i = 0; i < total_order; i++) {
+       outputFile << orders[i].getOid() << " " ;
+       outputFile << orders[i].getArrival() << " " ;
+       outputFile << orders[i].getDuration() << " " ;
+       outputFile << orders[i].getTimeout() << "\n";
+     }
+     auto end = std::chrono::high_resolution_clock::now();
+     auto time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+     writing_data_time = time.count();
+
+  }
+
+  void printOrders() {
+        std::cout << "\t" <<title << std::endl;
+        for (int i = 0; i < total_order; i++) {
+          std::cout << "(" << i+1 << ")";
+          orders[i].print();
+        }
+  }
+
+  void taskOne() {
+    printf("\n");
+    printOrders();
+    printf("\n");
+    ShellSort();
+    OutputFile();
+    std::cout << "Reading data: " << reading_data_time << " us\n";
+    printf("\n");
+    std::cout << "Sorting data: " << sorting_data_time << " us\n";
+    printf("\n");
+    std::cout << "Writing data: " << writing_data_time << " us\n";
+
+  }
+
+};
+
+class CancelList {
+ private:
+  std::vector<Order> sorted_orders;
+  std::vector<AbortOrder> abort_orders; 
+  std::vector<TimeOutOrder> timeOut_orders;
+  std::string filNum;
+  std::string title;
+  int total_order = 0;
+  int total_delay = 0;
+ public:
+  CancelList () {}
+  ~CancelList () {
+    total_order = 0;
+    sorted_orders.clear();
+    sorted_orders.shrink_to_fit();
+  }
+  bool fetchFile() {
+    std::ifstream in;
+    std:: cout << "Input a file number (e.g., 401, 402, 403, ...): ";
+    std::string file_num = ReadInput();
+    std::string txt_path = "sorted" + file_num + ".txt";
+    in.open(txt_path);
+    if(in.fail()){ 
+      std::cout << std::endl << txt_path + " does not exist!\n" << std::endl;
+      return false; 
+    }
+    filNum = file_num;
+    std::getline(in, title);
+    int oid, arrival, duration, timeout;
+    while (in >> oid >> arrival >> duration >> timeout) {
+      Order o;
+      o.setOrder(oid, arrival, duration, timeout);
+      sorted_orders.push_back(o);
+      total_order++;
+    }       
+    in.close();
+    return true;
+  }
+
+  void OutputFile() {
+     std::string sorting_path = "one" + filNum + ".txt";
+     std::ofstream outputFile(sorting_path);
+     outputFile << std::fixed << std::setprecision(2);
+     outputFile <<  "\t[Abort List]\n";
+     outputFile << "\tOID\tCID\tDelay\tAbort\n";
+     for (int i = 0; i < abort_orders.size(); i++) {
+       outputFile << "[" << i+1 << "] ";
+       outputFile << "\t" << abort_orders[i].getOid();
+       outputFile << "\t" << abort_orders[i].getCid();
+       outputFile << "\t" << abort_orders[i].getDelay();
+       outputFile << "\t" << abort_orders[i].getAbort() << "\n";
+     }
+     outputFile <<  "\t[Timeout List]\n";
+     outputFile << "\tOID\tCID\tDelay\tDeparture\n";
+     for (int i = 0; i < timeOut_orders.size(); i++) {
+       outputFile << "[" << i+1 << "] ";
+       outputFile << "\t" << timeOut_orders[i].getOid() << " " ;
+       outputFile << "\t" << timeOut_orders[i].getCid() << " " ;
+       outputFile << "\t" << timeOut_orders[i].getDelay() << " " ;
+       outputFile << "\t" << timeOut_orders[i].getDeparture() << "\n";
+     }
+     outputFile <<  "[Total Delay]\n";
+     outputFile << total_delay << " min.\n";
+     outputFile << "[Failure Percentage]\n";
+  
+     double percentage = 100 * (double)(abort_orders.size() + timeOut_orders.size()) / (double)sorted_orders.size() ;
+     outputFile << percentage << "%" << std::endl;
+
+  }
+
+ 
+
+  void printOrders() {
+        std::cout << "\t" <<title << std::endl;
+        for (int i = 0; i < total_order; i++) {
+          std::cout << "(" << i+1 << ")";
+          sorted_orders[i].print();
+        }
+  }
+
+  void processOrderFromQueue(Queue &q, int &idle_time) {
+    Order front;
+    q.dequeue(front);
+
+    int start = idle_time;
+
+    // --- 取出時逾時 → Abort ---
+    if (front.getTimeout() < start) {
+        int abort_time = start;
+        int delay = abort_time - front.getArrival();
+        abort_orders.push_back(AbortOrder(front.getOid(), 1, delay, abort_time));
+        total_delay += delay;
+        return;
+    }
+
+    // --- 做菜後才逾時 → Timeout ---
+    if (start + front.getDuration() > front.getTimeout()) {
+        int delay = start - front.getArrival();
+        idle_time += front.getDuration();
+        timeOut_orders.push_back(TimeOutOrder(front.getOid(), 1, delay, idle_time));
+        total_delay += delay;
+        return;
+    }
+
+    // --- 正常完成 ---
+    idle_time += front.getDuration();
+}
+void taskTwo() {
+    int idle_time = 0;
+    Queue q;
+
+    for (int i = 0; i < total_order; i++) {
+        Order &cur = sorted_orders[i];
+
+        // --- 不合理 → 直接取消 ---
+        if (cur.getDuration() <= 0 || cur.getArrival() + cur.getDuration() > cur.getTimeout()) {
+            sorted_orders.erase(sorted_orders.begin() + i);
+            i--;
+            total_order--;
+            continue;
+        }
+        int arrival = cur.getArrival();
+
+        //  若 queue 尚有舊訂單，且 idle_time 剛好等於 arrival → 先清舊單（耗時=0）
+        
+            while (!q.isEmpty() && idle_time <= arrival) {
+                processOrderFromQueue(q, idle_time);
+            }
+            // 正常完成但耗時=0 → idle_time 不變
+        
+
+        // 若廚師空、未達 arrival → 跳到 arrival 
+        if (q.isEmpty() && idle_time < arrival)
+            idle_time = arrival;
+
+        //  Queue 滿 -> abort
+        if (q.size() >= 3 && arrival < idle_time) {
+            abort_orders.push_back(AbortOrder(cur.getOid(), 0, 0, arrival));
+            
+        } else {
+          q.enqueue(cur);
+        }
+        
+       
+    }
+
+    // 處理 queue 中剩餘的訂單 
+    while (!q.isEmpty()) {
+        processOrderFromQueue(q, idle_time);
+    }
+    OutputFile();
+}
+
+
+
+};
+
+
 int main() {
-  Maze maze1; // for task1, 2, 3
-  Maze maze4; // for task4
-  bool maze1_is_empty = true;
+  Goods goods;
+  bool has_command2 = false;
   while (true) {
     PrintTitle();
     std::string cmd = ReadInput();
@@ -642,49 +434,55 @@ int main() {
     if (cmd == "0") {
       return 0;
     } else if (cmd == "1") {
-      std::cout << std::endl;
-      if (!maze1_is_empty) {
-        maze1.deleteMaze();
-        maze1_is_empty = true;
+      printf("\n");
+      goods.ResetGoods();
+      if (goods.fetchFile()) {
+        goods.taskOne();
       }
-      if (maze1.fetchFile()) {
-        maze1_is_empty = false;
-        maze1.taskOne();
-      }
-      continue;
+      has_command2 = false;
+      
     } else if (cmd == "2") {
-      std::cout << std::endl;
-      if (!maze1_is_empty) {
-        maze1.taskTwo();
-      } else {
-        std::cout << "### Execute command 1 to load a maze! ###\n";
+      printf("\n");
+      CancelList list;
+      if (list.fetchFile()) {
+        printf("\n");
+        list.printOrders();
+        list.taskTwo();
       }
-      std::cout << std::endl;
-      continue;
+      has_command2 = true;
+ 
+  
     } else if (cmd == "3") {
-      if (!maze1_is_empty) {
-        maze1.taskThree();
+      CancelList list;
+      if (!has_command2) {
+        std::cout << "\n### Execute command 2 first! ###\n\n";
         continue;
-      } else {
-        std::cout << "\n### Execute command 1 to load a maze! ###\n";
       }
+     
     } else if (cmd == "4") {
-      std::cout << std::endl;
-      if (maze4.fetchFile()) {
-        maze4.taskFour();
-        maze4.deleteMaze();
-      } 
-      continue;
+      CancelList list;
+      if (!has_command2) {
+        std::cout << "\n### Execute command 2 first! ###\n\n";
+        continue;
+      }
+      printf("\n");
+      std::cout << "Input the number of queues: ";
+      int num;
+      std::cin >> num;
+      if (num == 1) {
+        if (list.fetchFile()) {
+          list.taskTwo();
+        }
+      }
+
+      
     } else {
       printf("\n");
       std::cout << "Command does not exist!\n";
     }
     printf("\n");  
   }
-
 }
-
-// QUENE 跟 Stack 都是來自老師的簡報
 
 Queue::Queue() {
   backPtr = NULL;   
@@ -706,9 +504,9 @@ bool Queue::isEmpty() const{
 }
 
 
-void Queue::enqueue(const Coordinate& newItem){
+void Queue::enqueue(const Order& newItem){
     QueueNode* newPtr = new QueueNode;  
-    newPtr->coordinate_item = newItem;              
+    newPtr->order_item = newItem;              
     newPtr->next = NULL;                 
 
     if (isEmpty()) {
@@ -743,86 +541,29 @@ void Queue::dequeue() {
     }
 }
 
-void Queue::getFront(Coordinate& queueFront) const {
+void Queue::getFront(Order& queueFront) const {
     if (isEmpty())
         throw std::runtime_error("Queue is empty, cannot dequeue.");
     // 否則，把前端節點的資料取出放進參數
-    queueFront = frontPtr->coordinate_item;
+    queueFront = frontPtr->order_item;
 }
 
-void Queue::dequeue(Coordinate& queueFront){
+void Queue::dequeue(Order& queueFront){
     if (isEmpty())
         throw std::runtime_error("Queue is empty, cannot dequeue.");
-    queueFront = frontPtr->coordinate_item;
+    queueFront = frontPtr->order_item;
     dequeue();
 } 
-Stack::Stack(const Stack& aStack) {
-  if (aStack.topPtr == NULL) {
-    topPtr = NULL; // original list is empty
-  } else {
-    topPtr = new StackNode;
-    topPtr->coordinate_item = aStack.topPtr->coordinate_item;
-    StackNode *newPtr = topPtr;
-    for (StackNode *origPtr = aStack.topPtr->next; origPtr != NULL; origPtr = origPtr->next) {
-       newPtr->next = new StackNode;
-       newPtr = newPtr->next;
-       newPtr->coordinate_item = origPtr->coordinate_item;
-    } // end for
-    newPtr->next = NULL;
-  } // end if-else
-} // end copy construct
 
-Stack::Stack() {
-    topPtr = nullptr;
-}
-
-Stack::~Stack() {
-  while (!isEmpty()) {
-    pop();
+int Queue::size() {
+  int count = 0;
+  QueueNode* current = frontPtr;
+  while (current != nullptr) {
+      count++;
+      current = current->next;
   }
-}
-bool Stack::isEmpty() {
-  return topPtr == NULL;
-}
-//bad_alloc 是 C++ 標準例外類別，當 new 失敗時會丟出這個例外。
-  //用 catch (bad_alloc& e) 比 catch (bad_alloc e) 好，因為：
-  //避免複製例外物件（效率更好）
-  //確保多型行為正確
-  //e.what() 會輸出錯誤訊息（通常是 "std::bad_alloc"）
-void Stack::push(const Coordinate& newcoordinate_Item) {
-  try { 
-    StackNode *newPtr = new StackNode;
-    newPtr->coordinate_item = newcoordinate_Item;
-    newPtr->next = topPtr;
-    topPtr = newPtr;
-  } // end try
-   catch (std::bad_alloc& e) {  // ← 用參考 (&)
-     std::cerr << "記憶體配置失敗: " << e.what() << std::endl;
-   } // end catch
-}
-void Stack::pop() {
-  if (!isEmpty()){ 
-    StackNode *temp = topPtr;
-    topPtr = topPtr->next;
-    temp->next = NULL;
-    delete temp;
-  } // end if
-}
-
-void Stack::getTop(Coordinate& stackTop) {
-  if (!isEmpty()) {
-    stackTop = topPtr->coordinate_item;
-  }
-}
-
-void Stack:: pop(Coordinate& stackTop) {
-  if (!isEmpty()) {
-    stackTop = topPtr->coordinate_item;
-    StackNode *temp = topPtr;
-    topPtr = topPtr->next;
-    temp->next = NULL;
-    delete temp;
-  } // end if
+  return count;
+  
 }
 
 std::string ReadInput() {
@@ -868,16 +609,16 @@ void SkipSpace(std::string &str) {
   }
 }
 
-
-
 void PrintTitle () {
   std::cout << "*** (^_^) Data Structure (^o^) ***\n";
-  std::cout << "*** Find the Goal(s) in a Maze ***\n";
+  std::cout << "** Simulate FIFO Queues by SQF ***\n";
   std::cout << "* 0. Quit                        *\n";
-  std::cout << "* 1. Find one goal               *\n";
-  std::cout << "* 2. Find goal(s) as requested   *\n";
-  std::cout << "* 3. How many goals?             *\n";    
-  std::cout << "* 4. Shortest path to one goal   *\n";
+  std::cout << "* 1. Sort a file                 *\n";
+  std::cout << "* 2. Simulate one FIFO queue     *\n";
+  std::cout << "* 3. Simulate two queues by SQF  *\n";    
+  std::cout << "* 4. Simulate some queues by SQF *\n";
   std::cout << "**********************************\n";
   std::cout << "Input a command(0, 1, 2, 3, 4): ";
 } 
+
+
