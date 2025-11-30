@@ -587,6 +587,7 @@ int main() {
         std::cout << "\n### Execute command 2 first! ###\n\n";
         continue;
       }
+      list.taskTwoMultiChef(2);
       list.ResetCancel();
      
     } else if (cmd == "4") {
