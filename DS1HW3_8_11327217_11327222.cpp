@@ -9,10 +9,6 @@
 void PrintTitle();
 void SkipSpace(std::string &str);
 std::string ReadInput();
-bool isNonNegInt (std::string s);
-
-
-
 class Order {
  private:
   int oid;
@@ -164,7 +160,7 @@ class Goods {
     total_order = 0;
     orders.clear();
     orders.shrink_to_fit();
-
+    title = "";
   }
   void addOrder(const Order& o) {
     orders.push_back(o);
@@ -183,7 +179,15 @@ class Goods {
       return false; 
     }
     filNum = file_num;
-    std::getline(in, title);
+    while (title.empty()) {
+      title.clear();
+      if (!(in >> title) ) {
+         std::cout << std::endl << "### Get nothing from " << txt_path + " ! ###" << std::endl;
+        return false;
+      }
+      std::getline(in, title);
+    }
+    
     int oid, arrival, duration, timeout;
     while (in >> oid >> arrival >> duration >> timeout) {
       Order o;
@@ -370,111 +374,42 @@ class CancelList {
           sorted_orders[i].print();
         }
   }
-
-  void processOrderFromQueue(Queue &q, int &idle_time) {
+void processOrder(Chef &chef) {
     Order front;
-    q.dequeue(front);
-    int start = idle_time;
-    // --- 取出時逾時 → Abort ---
+    chef.q.dequeue(front);
+    int start = chef.idle_time;
+    // 取出時逾時 -> Abort 
     if (front.getTimeout() < start) {
         int abort_time = start;
         int delay = abort_time - front.getArrival();
-        abort_orders.push_back(AbortOrder(front.getOid(), 1, delay, abort_time));
+        abort_orders.push_back(AbortOrder(front.getOid(), chef.cid, delay, abort_time));
         total_delay += delay;
         return;
     }
-    // 做菜後才逾時 → Timeout
+    // 做菜後才逾時 -> Timeout
     if (start + front.getDuration() > front.getTimeout()) {
         int delay = start - front.getArrival();
-        idle_time += front.getDuration();
-        timeOut_orders.push_back(TimeOutOrder(front.getOid(), 1, delay, idle_time));
+        chef.idle_time = start + front.getDuration();
+        timeOut_orders.push_back(TimeOutOrder(front.getOid(), chef.cid, delay, chef.idle_time));
         total_delay += delay;
         return;
     }
 
     // 正常完成 
-    idle_time += front.getDuration();
+    chef.idle_time += front.getDuration();
 }
 
-void processOrderFromQueue2(Queue &q, int cid, int &idle_time) {
-    Order front;
-    q.dequeue(front);
-    int start = idle_time;
-    // --- 取出時逾時 → Abort ---
-    if (front.getTimeout() < start) {
-        int abort_time = start;
-        int delay = abort_time - front.getArrival();
-        abort_orders.push_back(AbortOrder(front.getOid(), cid, delay, abort_time));
-        total_delay += delay;
-        return;
-    }
-    // 做菜後才逾時 → Timeout
-    if (start + front.getDuration() > front.getTimeout()) {
-        int delay = start - front.getArrival();
-        idle_time = start + front.getDuration();
-        timeOut_orders.push_back(TimeOutOrder(front.getOid(), cid, delay, idle_time));
-        total_delay += delay;
-        return;
-    }
-
-    // 正常完成 
-    idle_time += front.getDuration();
-}
-void taskTwo() {
-    int idle_time = 0;
-    Queue q;
-
-    for (int i = 0; i < total_order; i++) {
-        Order &cur = sorted_orders[i];
-
-        // 不合理  直接取消 
-        if (cur.getDuration() <= 0 || cur.getArrival() + cur.getDuration() > cur.getTimeout()) {
-            sorted_orders.erase(sorted_orders.begin() + i);
-            i--;
-            total_order--;
-            continue;
-        }
-        int arrival = cur.getArrival();
-
-        //  若 queue 尚有舊訂單，且 idle_time 剛好等於 arrival → 先清舊單（耗時=0）
-        
-        while (!q.isEmpty() && idle_time <= arrival) {
-            processOrderFromQueue(q, idle_time);
-        }
-            // 正常完成但耗時=0 → idle_time 不變
-        
-
-        // 若廚師空、未達 arrival → 跳到 arrival 
-        if (q.isEmpty() && idle_time < arrival)
-            idle_time = arrival;
-
-        //  Queue 滿 -> abort
-        if (q.size() >= 3 && arrival < idle_time) {
-            abort_orders.push_back(AbortOrder(cur.getOid(), 0, 0, arrival));
-            
-        } else {
-          q.enqueue(cur);
-        }
-    }
-
-    // 處理 queue 中剩餘的訂單 
-    while (!q.isEmpty()) {
-        processOrderFromQueue(q, idle_time);
-    }
-
-    OutputFile(1);
-}
-
-void taskTwoMultiChef(int chef_count) {
+void MultiChef(int chef_count) { // for task 2 3 4
     Chef chef[chef_count];
     for (int i = 0; i < chef_count; i++) {
       chef[i].cid = i+1;
     }
 
     for (int i = 0; i < total_order; i++) {
+        
     
         Order &cur = sorted_orders[i];
-        //  不合理 → 直接取消 
+        //  不合理  直接取消 delete from vector 
         if (cur.getDuration() <= 0 || cur.getArrival() + cur.getDuration() > cur.getTimeout()) {
             sorted_orders.erase(sorted_orders.begin() + i);
             i--;
@@ -487,13 +422,12 @@ void taskTwoMultiChef(int chef_count) {
     
         for (int i = 0; i < chef_count; i++) {
           while (!chef[i].q.isEmpty() && chef[i].idle_time <= arrival) {
-            processOrderFromQueue2(chef[i].q, chef[i].cid, chef[i].idle_time);
+            processOrder(chef[i]);
           }
         }
 
-  // 若廚師空、未達 arrival → 跳到 arrival 
+  // 若廚師空、未達 arrival -> 跳到 arrival 
         int target = -1;
-
         // Case1 / Case2：找 idle_time ≤ arrival 且 queue 空的廚師
         std::vector<int> idle_list;
         for (int c = 0; c < chef_count; c++) {
@@ -504,33 +438,26 @@ void taskTwoMultiChef(int chef_count) {
 
         if (idle_list.size() == 1) {
             target = idle_list[0]; // 唯一閒置
-        }
-        else if (idle_list.size() > 1) {
-            target = idle_list[0]; // 多個閒置 → 選編號最小
-        }
-        else {
+        } else if (idle_list.size() > 1) {
+            target = idle_list[0]; // 多個閒置 -> 選編號最小
+        } else {
             // Case3：沒有閒置廚師  選 queue 最短的（且 < 3）
             int best_len = INT_MAX;
             for (int c = 0; c < chef_count; c++) {
-                int len = chef[c].q.size();
-                if (len < best_len && len < 3) {
-                    best_len = len;
-                    target = c;
-                }
+              int len = chef[c].q.size();
+              if (len < best_len && len < 3) {
+                  best_len = len;
+                  target = c;
+              }
             }
-
-            // Case4：全部 queue 都滿 → abort
+            // Case4：全部 queue 都滿 -> abort
             if (target == -1) {
                 abort_orders.push_back(AbortOrder(cur.getOid(), 0, 0, arrival));
                 continue;
             }
         }
-
-        // -------------------------------------------
         // Step 3：把訂單丟給 target 廚師
-        // -------------------------------------------
         chef[target].q.enqueue(cur);
-
         // 若該廚師是空的而且 idle_time < arrival → 推進時間
         if (chef[target].q.size() == 1 && chef[target].idle_time < arrival) {
             chef[target].idle_time = arrival;
@@ -539,18 +466,15 @@ void taskTwoMultiChef(int chef_count) {
   
     // 處理 queue 中剩餘的訂單 
     
-    bool processed;
-
-do {
-    // 建立索引陣列
-    
-    int idx[chef_count];
-    // bubble sort idx，依 idle_time 遞增，idle_time 相同時按 cid 遞增
     if (chef_count >= 2) {
-      
-      for (int i = 0; i < chef_count; i++) idx[i] = i;
-      for (int i = 0; i < chef_count - 1; i++) {
-          for (int j = 0; j < chef_count - 1 - i; j++) {
+      bool processed;
+      do {
+          // 建立索引陣列
+          int idx[chef_count];
+          // bubble sort idx，依 idle_time 遞增，idle_time 相同時按 cid 遞增
+          for (int i = 0; i < chef_count; i++) idx[i] = i;
+          for (int i = 0; i < chef_count - 1; i++) {
+            for (int j = 0; j < chef_count - 1 - i; j++) {
               int a = idx[j], b = idx[j+1];
               if (chef[a].idle_time > chef[b].idle_time ||
                 (chef[a].idle_time == chef[b].idle_time && chef[a].cid > chef[b].cid)) {
@@ -558,28 +482,30 @@ do {
                   idx[j] = idx[j+1];
                   idx[j+1] = temp;
               }
+            }
           }
+          
+          // 找第一個可以處理的 chef（idle_time 最小且 queue 不空）
+          processed = false;
+          for (int i = 0; i < chef_count; i++) {
+              int c = idx[i];
+              // 如果需要考慮 arrival 時間，打開 idle_time <= arrival
+              if (!chef[c].q.isEmpty()) {
+                  processOrder(chef[c]);
+                  processed = true;
+                  break; // 做完一單後重新排序
+              }
+          }
+
+        } while (processed);
+    } else if (chef_count == 1) {
+      while (!chef[0].q.isEmpty()) {
+        processOrder(chef[0]);
       }
     }
-    // 找第一個可以處理的 chef（idle_time 最小且 queue 不空）
-    processed = false;
-    for (int i = 0; i < chef_count; i++) {
-        int c = idx[i];
-        // 如果需要考慮 arrival 時間，打開 idle_time <= arrival
-        if (!chef[c].q.isEmpty()) {
-            processOrderFromQueue2(chef[c].q, chef[c].cid, chef[c].idle_time);
-            processed = true;
-            break; // 做完一單後重新排序
-        }
-    }
 
-} while (processed);
-    
-    OutputFile(chef_count);
-}
-
-
-
+      OutputFile(chef_count);
+  }
 
 };
 
@@ -593,8 +519,8 @@ int main() {
     int cmd;
     std::cin >> cmd;
     if (std::cin.fail()) { // 檢查輸入是否失敗
-        std::cin.clear();              // 清除錯誤標誌
-        std::cin.ignore(10000, '\n');  // 忽略錯誤輸入
+        std::cin.clear();              
+        std::cin.ignore(10000, '\n');  
         return 0;
     } else if (cmd == 0 ){
       return 0;
@@ -602,6 +528,7 @@ int main() {
       printf("\n");
       goods.ResetGoods();
       if (goods.fetchFile()) {
+
         goods.taskOne();
       }
       has_command2 = false;
@@ -615,7 +542,7 @@ int main() {
       if (list.fetchFile()) {
         printf("\n");
         list.printOrders();
-        list.taskTwo();
+        list.MultiChef(1);
         has_command2 = true;
       }
       
@@ -628,7 +555,7 @@ int main() {
         std::cout << "\n### Execute command 2 first! ###\n\n";
         continue;
       }
-      list.taskTwoMultiChef(2);
+      list.MultiChef(2);
       list.ResetCancel();
      
     } else if (cmd == 4) {
@@ -641,11 +568,7 @@ int main() {
       std::cout << "Input the number of queues: ";
       int num;
       std::cin >> num;
-      if (num == 1) {
-        list.taskTwo();
-      } else {
-        list.taskTwoMultiChef(num);
-      }
+      list.MultiChef(num);
       list.ResetCancel();
     } else {
       printf("\n");
@@ -754,23 +677,6 @@ std::string ReadInput() {
   }
   return input;
 }
-bool isNonNegInt (std::string s) {
-  bool hasDigit = false;
-  int i = 0;
-  if (s[i] == '+') {
-    i++;
-    if (s.size() == 1) return false; // 單獨一個符號不行
-  }
-  for (; i < s.size(); i++) {
-    if (s[i] >= '0' && s[i] <= '9') {
-       hasDigit = true; // 至少有一個數字
-    }  else return false; // 任何其他字元都不允許
-        
-  }
-    // 最後要至少有一個數字
-  return hasDigit;
-}
-
 void SkipSpace(std::string &str) {
   for (int i = 0; i < str.size(); i++) {
     if (str[i] != ' ') break;
