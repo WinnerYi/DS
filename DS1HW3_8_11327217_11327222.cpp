@@ -29,7 +29,7 @@ class BinarySearchTreeIterative {
  public:
     BinarySearchTreeIterative() : root(nullptr) {}
 
-    // 插入：生命值 + 編號
+    // 插入：生命值 + 編號 task1
     void insert(int hp, int id) {
         if (root == nullptr) {
             root = new Node(hp, id);
@@ -61,19 +61,42 @@ class BinarySearchTreeIterative {
             parent->right = new Node(hp, id);
     }
 
-    // 搜尋：回傳該生命值的所有編號
-    std::vector<int>* search(int hp) {
-        Node* current = root;
-        while (current != nullptr) {
-            if (current->hp == hp)
-                return &current->ids;
-            else if (hp < current->hp)
-                current = current->left;
-            else
-                current = current->right;
+    // 搜尋：回傳該生命值的所有編號 task2
+    void rangeSearchIterative(int low, int high, std::vector<Node*>& result,  int& visitedCount) {
+    visitedCount = 0;
+    result.clear();
+    result.shrink_to_fit();
+    if (root == nullptr) return;
+    std::stack<Node*> st;
+    st.push(root);
+
+    while (!st.empty()) {
+        Node* current = st.top();
+        st.pop();
+
+        visitedCount++;   // 走訪節點
+
+        if (current->hp < low) {
+            // 只可能在右子樹
+            if (current->right != nullptr)
+                st.push(current->right);
         }
-        return nullptr;
+        else if (current->hp > high) {
+            // 只可能在左子樹
+            if (current->left != nullptr)
+                st.push(current->left);
+        }
+        else {
+            // 命中範圍
+            result.push_back(current);
+            if (current->left != nullptr)
+                st.push(current->left);
+            if (current->right != nullptr)
+                st.push(current->right);
+        }
     }
+}
+
 
     // Inorder（由小到大生命值）
     void inorder() {
@@ -324,18 +347,58 @@ int getRaichuSize() {
 }
 
 void taskOne() {
-  std::cout << "\t#\tName\tType 1\tHP\n";
+  std::cout << "\t#";
+  std::cout << "\t" << std::left<< std::setw(20) << "Name";
+  std::cout << "\t" << std::left<< std::setw(15) << "Type 1";
+  std::cout << "\tHP";
+  std::cout << std::endl;
   for (int i = 0; i < raichus.size(); i++) {
-    if (i + 1 < 10) std::cout << "[  " << i+1 << "]";
-    else if (i + 1 >= 10) std::cout << "[ " << i+1 << "]";
-    else if (i + 1 >= 100) std::cout << "[" << i+1 << "]";
-    std::cout << "\t" << raichus[i].getid();
-    std::cout << "\t" << raichus[i].getName();
-    std::cout << "\t" << raichus[i].getType1();
-    std::cout << "\t" << raichus[i].getHp();
+    std::cout << "[" << std::right << std::setw(3) << i + 1 << "]\t";
+    std::cout << std::left<< std::setw(4) << raichus[i].getid() << "\t";
+    std::cout << std::left<< std::setw(20) << raichus[i].getName() << "\t";
+    std::cout << std::left<< std::setw(15) << raichus[i].getType1() << "\t";
+    std::cout << std::left<< std::setw(6) << raichus[i].getHp();
     std::cout << "\n";
   }
   std::cout << "HP tree height = " << bst.height() << std::endl;
+}
+
+void taskTwo() {
+  int low, high;
+  while (1) {
+    std::cout << "\nInput a non-negative integer: ";
+    std::cin >> low;
+    if (low >= 0) break;
+    if (low < 0) {
+      std::cout << "### It is NOT a non-negative integer. ###\nTry again:";
+    }
+  }
+  while (1) {
+    std::cout << "\nInput a non-negative integer: ";
+    std::cin >> high;
+    if (high >= 0) break;
+    if (high < 0) {
+      std::cout << "### It is NOT a non-negative integer. ###\nTry again:";
+    }
+  }
+  if (low > high) {
+    int temp = low;
+    low = high;
+    high = temp;
+  }
+
+  std::vector<Node*> result;
+  int visitedCount = 0;
+  bst.rangeSearchIterative(low, high, result, visitedCount);
+  if (result.empty()) {
+    std::cout << "No record was found in the specified range." << std::endl;
+  } else {
+
+
+
+  }
+
+
 }
 
 
@@ -374,7 +437,8 @@ int main() {
         std::cout << "\n----- Execute Mission 1 first! -----\n\n";
         continue;
       }
-   
+      pokemon.taskTwo();
+      
  
   
     } else if (cmd == 3) {
