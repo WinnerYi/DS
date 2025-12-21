@@ -6,10 +6,11 @@
 #include <sstream>
 #include <iomanip>
 #include <climits>
+#include <stack>
+#include <queue>
 void PrintTitle();
 void SkipSpace(std::string &str);
 std::string ReadInput();
-
 struct Node {
   int hp;                    // 生命值（BST key）
   std::vector<int> ids;      // 相同 hp 的所有編號
@@ -22,7 +23,8 @@ struct Node {
   } 
 };
 
-class BinarySearchTreeIterative {
+
+class BinarySearchTreeIterative { // only store id and hp
  private:
     Node* root;
 
@@ -63,14 +65,13 @@ class BinarySearchTreeIterative {
 
     // 搜尋：回傳該生命值的所有編號 task2
     void rangeSearchIterative(int low, int high, std::vector<Node*>& result,  int& visitedCount) {
-    visitedCount = 0;
-    result.clear();
-    result.shrink_to_fit();
-    if (root == nullptr) return;
-    std::stack<Node*> st;
-    st.push(root);
+      visitedCount = 0;
+      result.clear();
+      if (root == nullptr) return;
+      std::stack<Node*> st;
+      st.push(root);
 
-    while (!st.empty()) {
+      while (!st.empty()) {
         Node* current = st.top();
         st.pop();
 
@@ -94,8 +95,10 @@ class BinarySearchTreeIterative {
             if (current->right != nullptr)
                 st.push(current->right);
         }
+      }
+
+      
     }
-}
 
 
     // Inorder（由小到大生命值）
@@ -121,58 +124,37 @@ class BinarySearchTreeIterative {
         }
     }
 
-    // 刪除整個生命值節點（含所有 id）
-    void deleteNode(int hp) {
-        Node* parent = nullptr;
-        Node* current = root;
-        bool isLeftChild = false;
+    Node* deleteExtreme(bool deleteMin) {
+      if (root == nullptr) return nullptr;
+      Node* parent = nullptr;
+      Node* current = root;
 
-        while (current != nullptr && current->hp != hp) {
+      if (deleteMin) {
+          // 找最小 hp
+          while (current->left != nullptr) {
+              parent = current;
+              current = current->left;
+          }
+
+          // 刪除節點
+          if (parent == nullptr)
+              root = current->right;   // root 是最小
+          else
+              parent->left = current->right;
+      } else if (!deleteMin) {
+          // 找最大 hp
+        while (current->right != nullptr) {
             parent = current;
-            if (hp < current->hp) {
-                isLeftChild = true;
-                current = current->left;
-            } else {
-                isLeftChild = false;
-                current = current->right;
-            }
+            current = current->right;
         }
 
-        if (current == nullptr) return;
+        if (parent == nullptr)
+            root = current->left;    // root 是最大
+        else
+            parent->right = current->left;
+      }
 
-        // case 1 / 2：0 or 1 child
-        if (current->left == nullptr || current->right == nullptr) {
-            Node* child = (current->left) ? current->left : current->right;
-
-            if (parent == nullptr)
-                root = child;
-            else if (isLeftChild)
-                parent->left = child;
-            else
-                parent->right = child;
-
-            delete current;
-        }
-        // case 3：2 children
-        else {
-            Node* succParent = current;
-            Node* succ = current->right;
-
-            while (succ->left != nullptr) {
-                succParent = succ;
-                succ = succ->left;
-            }
-
-            current->hp = succ->hp;
-            current->ids = succ->ids;
-
-            if (succParent->left == succ)
-                succParent->left = succ->right;
-            else
-                succParent->right = succ->right;
-
-            delete succ;
-        }
+      return current; //  回傳被刪的節點（還沒 delete）
     }
 
     int height() {
@@ -253,7 +235,7 @@ class Raichu{  // 雷丘放電
       this->generation = generation;
       this->legendary = legendary;
     }
-    int getid() {
+    int getId() {
       return id;
     }
 
@@ -265,8 +247,27 @@ class Raichu{  // 雷丘放電
       return type1;
     }
 
+    int getTotal() {
+      return total;
+    }
+
     int getHp() {
       return hp;
+    }
+
+    int getAttack() {
+      return attack;
+    }
+
+    int getDefense() {
+      return defense;
+    }
+
+    int getSpAttack() {
+      return sp_atk;
+    }
+    int getSpDefense() {
+      return sp_def;
     }
 
 };
@@ -275,13 +276,15 @@ class Pokemon {
  private:
   BinarySearchTreeIterative bst;
   std::vector<Raichu> raichus;
+  int max_hp;
   
  public:
-  Pokemon() : bst(), raichus() {}
+  Pokemon() : bst(), raichus(), max_hp(0) {}
   void reSet() {
     bst.clear();
     raichus.clear();
     raichus.shrink_to_fit();  // 釋放多餘容量
+    max_hp = 0;
 
   }
   bool fetchFile() {
@@ -299,45 +302,47 @@ class Pokemon {
     std::getline(in, title);
 
     std::string line;
-  while (std::getline(in, line)) {
-    std::stringstream ss(line);
-    int id, total, hp, attack, defense, sp_atk, sp_def, speed, generation;
-    std::string name, type1, type2, legendary;
+    while (std::getline(in, line)) {
+      std::stringstream ss(line);
+      int id, total, hp, attack, defense, sp_atk, sp_def, speed, generation;
+      std::string name, type1, type2, legendary;
 
-    std::string id_str, total_str, hp_str, attack_str,
-                defense_str, sp_atk_str, sp_def_str,
-                speed_str, generation_str;
-    std::getline(ss, id_str, '\t');
-    std::getline(ss, name, '\t');
-    std::getline(ss, type1, '\t');
-    std::getline(ss, type2, '\t');
-    std::getline(ss, total_str, '\t');
-    std::getline(ss, hp_str, '\t');
-    std::getline(ss, attack_str, '\t');
-    std::getline(ss, defense_str, '\t');
-    std::getline(ss, sp_atk_str, '\t');
-    std::getline(ss, sp_def_str, '\t');
-    std::getline(ss, speed_str, '\t');
-    std::getline(ss, generation_str, '\t');
-    std::getline(ss, legendary); // 最後一欄到行尾
-    id        = std::stoi(id_str);
-    total      = std::stoi(total_str);
-    hp         = std::stoi(hp_str);
-    attack     = std::stoi(attack_str);
-    defense    = std::stoi(defense_str);
-    sp_atk     = std::stoi(sp_atk_str);
-    sp_def     = std::stoi(sp_def_str);
-    speed      = std::stoi(speed_str);
-    generation = std::stoi(generation_str);
-
-    Raichu r;
-    r.setRaichu(id, name, type1, type2,
-                total, hp, attack, defense,
-                sp_atk, sp_def, speed,
-                generation, legendary);
-    bst.insert(hp, id);
-    raichus.push_back(r);
-}   
+      std::string id_str, total_str, hp_str, attack_str,
+                  defense_str, sp_atk_str, sp_def_str,
+                  speed_str, generation_str;
+      std::getline(ss, id_str, '\t');
+      std::getline(ss, name, '\t');
+      std::getline(ss, type1, '\t');
+      std::getline(ss, type2, '\t');
+      std::getline(ss, total_str, '\t');
+      std::getline(ss, hp_str, '\t');
+      std::getline(ss, attack_str, '\t');
+      std::getline(ss, defense_str, '\t');
+      std::getline(ss, sp_atk_str, '\t');
+      std::getline(ss, sp_def_str, '\t');
+      std::getline(ss, speed_str, '\t');
+      std::getline(ss, generation_str, '\t');
+      std::getline(ss, legendary); // 最後一欄到行尾
+      id        = std::stoi(id_str);
+      total      = std::stoi(total_str);
+      hp         = std::stoi(hp_str);
+      attack     = std::stoi(attack_str);
+      defense    = std::stoi(defense_str);
+      sp_atk     = std::stoi(sp_atk_str);
+      sp_def     = std::stoi(sp_def_str);
+      speed      = std::stoi(speed_str);
+      generation = std::stoi(generation_str);
+      if (hp > max_hp) {
+        max_hp = hp;
+      }
+      Raichu r;
+      r.setRaichu(id, name, type1, type2,
+                  total, hp, attack, defense,
+                  sp_atk, sp_def, speed,
+                  generation, legendary);
+      bst.insert(hp, id);
+      raichus.push_back(r);
+  }   
     in.close();
     return true;
 }
@@ -345,40 +350,61 @@ class Pokemon {
 int getRaichuSize() {
   return raichus.size();
 }
+int getTreeHeight() {
+  return bst.height();
+}
 
 void taskOne() {
-  std::cout << "\t#";
-  std::cout << "\t" << std::left<< std::setw(20) << "Name";
-  std::cout << "\t" << std::left<< std::setw(15) << "Type 1";
-  std::cout << "\tHP";
+  std::cout << '\t' << "#" << '\t' << std::setw(19) << std::left << "Name" << '\t'<< std::setw(10) << std::left << "Type 1"  << '\t' << "HP";
+  
   std::cout << std::endl;
   for (int i = 0; i < raichus.size(); i++) {
-    std::cout << "[" << std::right << std::setw(3) << i + 1 << "]\t";
-    std::cout << std::left<< std::setw(4) << raichus[i].getid() << "\t";
-    std::cout << std::left<< std::setw(20) << raichus[i].getName() << "\t";
-    std::cout << std::left<< std::setw(15) << raichus[i].getType1() << "\t";
+    std::cout << "[" << std::right << std::setw(3) << i + 1 << "]";
+    std::cout << '\t' << raichus[i].getId();
+    std::cout << '\t' << std::left<< std::setw(20) << raichus[i].getName() << "\t";
+    std::cout << std::left<< std::setw(10) << raichus[i].getType1() << "\t";
     std::cout << std::left<< std::setw(6) << raichus[i].getHp();
     std::cout << "\n";
   }
   std::cout << "HP tree height = " << bst.height() << std::endl;
 }
 
-void taskTwo() {
+void taskTwo() { // done
   int low, high;
   while (1) {
     std::cout << "\nInput a non-negative integer: ";
     std::cin >> low;
+    if (std::cin.fail()) { // 檢查輸入是否失敗
+        std::cin.clear();              
+        std::cin.ignore(10000, '\n'); 
+        std::cout << "\n### It is NOT a non-negative integer. ###\nTry again:"; 
+        continue;;
+    }
+    if (low > (max_hp * 2)) {
+      std::cout << "\n### It is NOT in [0," << max_hp * 2 << "]. ###\nTry again:";
+      continue;
+    }
     if (low >= 0) break;
     if (low < 0) {
-      std::cout << "### It is NOT a non-negative integer. ###\nTry again:";
+      std::cout << "\n### It is NOT a non-negative integer. ###\nTry again:";
     }
   }
   while (1) {
     std::cout << "\nInput a non-negative integer: ";
     std::cin >> high;
+    if (std::cin.fail()) { // 檢查輸入是否失敗
+        std::cin.clear();              
+        std::cin.ignore(10000, '\n'); 
+        std::cout << "\n### It is NOT a non-negative integer. ###\nTry again:"; 
+        continue;;
+    }
+    if (high > (max_hp * 2)) {
+      std::cout << "\n### It is NOT in [0," << max_hp * 2 << "]. ###\nTry again:";
+      continue;
+    }
     if (high >= 0) break;
     if (high < 0) {
-      std::cout << "### It is NOT a non-negative integer. ###\nTry again:";
+      std::cout << "\n### It is NOT a non-negative integer. ###\nTry again:";
     }
   }
   if (low > high) {
@@ -390,15 +416,77 @@ void taskTwo() {
   std::vector<Node*> result;
   int visitedCount = 0;
   bst.rangeSearchIterative(low, high, result, visitedCount);
+  for (int i = 0; i < result.size() - 1; i++) {
+    for (int j = 0; j < result.size() - 1 - i; j++) {
+        if (result[j]->hp < result[j+1]->hp) {
+            // 交換
+            Node* temp = result[j];
+            result[j] = result[j+1];
+            result[j+1] = temp;
+        }
+    }
+  }
+  
   if (result.empty()) {
     std::cout << "No record was found in the specified range." << std::endl;
   } else {
+    std::cout << "\t#\t" << std::setw(19) << std::left << "Name" << "\t" << std::setw(10) << std::left
+              <<  "Type 1" << "\t" << "Total" << "\t" << "HP" << "\t" << "Attack" << "\t" << "Defense"; 
+    std::cout << std::endl;
 
+    int idx = 1;
+    for (int i = 0; i < result.size(); i++) {  
+      Node* node = result[i];
+      for (int j = 0; j < node->ids.size(); j++) { // 走這個節點的每個 id
+        int id = node->ids[j];
+        for (int k = 0; k < raichus.size(); k++) { // 從頭找 raichus
+            if (raichus[k].getId() == id) {
+                std::cout << "[" << std::right << std::setw(3) << idx << "]";
+                idx++;
+                std::cout << '\t' <<raichus[k].getId();
+                std::cout << '\t' << std::setw(20) << std::left << raichus[k].getName() << '\t'; 
+                std::cout << std::setw(10) << raichus[k].getType1() << '\t';
+                std::cout << std::setw(6) << std::left << raichus[k].getTotal() << '\t';
+                std::cout << raichus[k].getHp() << '\t';
+                std::cout << raichus[k].getAttack() << '\t';
+                std::cout << raichus[k].getDefense() << '\n';
+                break; 
+            }
+        }
+      }
 
-
+    }
   }
+  std::cout << "Number of visited nodes = " << visitedCount << std::endl;
+}
 
-
+void taskThree(bool deleteMin) {
+  Node* deleted = bst.deleteExtreme(deleteMin);
+  std::cout << "\t#\t" << std::setw(19) << std::left << "Name" << "\t" << std::setw(10) << std::left
+              <<  "Type 1" << "\t" << "Total" << "\t" << "HP" << "\t" << "Attack" << "\t" << "Defense" << '\t' << "Sp. Atk" << '\t' << "Sp. Def"; 
+   std::cout << std::endl;
+  int idx = 1;
+  for (int i = 0; i < deleted->ids.size(); i++) {
+      int id = deleted->ids[i];
+      for (int j = 0; j < raichus.size(); j++) {
+        if (raichus[j].getId() == id) {
+          std::cout << "[" << std::right << std::setw(3) << idx << "]";
+          std::cout << '\t' << raichus[j].getId();
+          std::cout << '\t' << std::setw(20) << std::left << raichus[j].getName() << '\t';
+          std::cout <<  std::setw(10) << raichus[j].getType1() << '\t';
+          std::cout <<  std::setw(6)<< std::left << raichus[j].getTotal() << '\t';
+          std::cout << raichus[j].getHp() << '\t';
+          std::cout << raichus[j].getAttack() << '\t';
+          std::cout << raichus[j].getDefense() << '\t';
+          std::cout << std::setw(6) << std::left << raichus[j].getSpAttack() << "\t";
+          std::cout << raichus[j].getSpDefense() << std::endl;
+          idx++;
+          break;
+        }
+      }
+    }
+  delete deleted;
+  std::cout << "HP tree height = " << bst.height() << std::endl;
 }
 
 
@@ -406,13 +494,10 @@ void taskTwo() {
 
 
 
-
-
-
-
 int main() {
  
   Pokemon pokemon;
+   bool deleteMin = true;
   while (true) {
     PrintTitle();
     int cmd;
@@ -429,27 +514,25 @@ int main() {
       if (pokemon.fetchFile()) {
         pokemon.taskOne();
       }
-      
-   
-      
+      deleteMin = true;
     } else if (cmd == 2) {
-      if (pokemon.getRaichuSize() == 0) {
+      if (pokemon.getTreeHeight() == 0) {
         std::cout << "\n----- Execute Mission 1 first! -----\n\n";
         continue;
       }
       pokemon.taskTwo();
-      
- 
-  
+      deleteMin = true;
     } else if (cmd == 3) {
-      if (pokemon.getRaichuSize() == 0) {
+      if (pokemon.getTreeHeight() == 0) {
         std::cout << "\n----- Execute Mission 1 first! -----\n\n";
         continue;
       }
-    
+      printf("\n");
+      pokemon.taskThree(deleteMin);
+      deleteMin = !deleteMin;
      
     } else if (cmd == 4) {
-      if (pokemon.getRaichuSize() == 0) {
+      if (pokemon.getTreeHeight() == 0) {
         std::cout << "\n----- Execute Mission 1 first! -----\n\n";
         continue;
       }
