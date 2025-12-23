@@ -17,9 +17,11 @@ struct Node {
   Node* left;
   Node* right;
 
-  Node(int hp_, int id)
-      : hp(hp_), left(nullptr), right(nullptr) {
-      ids.push_back(id);
+  Node(int hp, int id) {
+    this->hp = hp;
+    left = nullptr;
+    right = nullptr;
+    ids.push_back(id); // 預設編號
   } 
 };
 
@@ -27,9 +29,62 @@ struct Node {
 class BinarySearchTreeIterative { // only store id and hp
  private:
     Node* root;
+    void inorderHelper(Node* cur, std::vector<Node*>& nodes) {
+        if (!cur) return;
+        inorderHelper(cur->left, nodes);
+        nodes.push_back(cur);
+        inorderHelper(cur->right, nodes);
+    }
+
+    Node* buildMinBST(std::vector<Node*>& nodes, int l, int r) {
+        if (l > r) return nullptr;
+
+        int mid = (l + r) / 2;
+        Node* cur = nodes[mid];
+
+        cur->left  = buildMinBST(nodes, l, mid - 1);
+        cur->right = buildMinBST(nodes, mid + 1, r);
+
+        return cur;
+    }
+
+    void printLevelOrder(Node* root) {
+        if (!root) return;
+
+        std::queue<Node*> q;
+        q.push(root);
+
+        int level = 1;
+        std::cout << "HP tree:\n";
+
+        while (!q.empty()) {
+            int levelSize = q.size();
+            std::cout << "<level " << level++ << "> ";
+
+            for (int i = 0; i < levelSize; ++i) {
+                Node* cur = q.front(); q.pop();
+
+                std::cout << "(" << cur->hp << ", ";
+                for (size_t j = 0; j < cur->ids.size(); ++j) {
+                    std::cout << cur->ids[j];
+                    if (j + 1 < cur->ids.size())
+                        std::cout << "|";
+                }
+                std::cout << ")";
+                if (i != levelSize - 1) {
+                  std::cout << " ";
+                }
+                if (cur->left)  q.push(cur->left);
+                if (cur->right) q.push(cur->right);
+            }
+            std::cout << "\n";
+        }
+    }
 
  public:
-    BinarySearchTreeIterative() : root(nullptr) {}
+    BinarySearchTreeIterative()  {
+      root = nullptr;
+    }
 
     // 插入：生命值 + 編號 task1
     void insert(int hp, int id) {
@@ -64,10 +119,11 @@ class BinarySearchTreeIterative { // only store id and hp
     }
 
     // 搜尋：回傳該生命值的所有編號 task2
-    void rangeSearchIterative(int low, int high, std::vector<Node*>& result,  int& visitedCount) {
+    void rangeSearchIterative(int low, int high, std::vector<Node*>& result, int& visitedCount) {
       visitedCount = 0;
       result.clear();
       if (root == nullptr) return;
+
       std::stack<Node*> st;
       st.push(root);
 
@@ -90,39 +146,15 @@ class BinarySearchTreeIterative { // only store id and hp
         else {
             // 命中範圍
             result.push_back(current);
-            if (current->left != nullptr)
+
+            if (current->left != nullptr && current->hp > low)
                 st.push(current->left);
-            if (current->right != nullptr)
+
+            if (current->right != nullptr && current->hp < high)
                 st.push(current->right);
         }
-      }
-
-      
-    }
-
-
-    // Inorder（由小到大生命值）
-    void inorder() {
-        std::vector<Node*> stack;
-        Node* current = root;
-
-        while (current != nullptr || !stack.empty()) {
-            while (current != nullptr) {
-                stack.push_back(current);
-                current = current->left;
-            }
-
-            current = stack.back();
-            stack.pop_back();
-
-            std::cout << "HP: " << current->hp << " IDs: ";
-            for (int id : current->ids)
-                std::cout << id << " ";
-            std::cout << "\n";
-
-            current = current->right;
-        }
-    }
+     }
+  }
 
     Node* deleteExtreme(bool deleteMin) {
       if (root == nullptr) return nullptr;
@@ -157,13 +189,20 @@ class BinarySearchTreeIterative { // only store id and hp
       return current; //  回傳被刪的節點（還沒 delete）
     }
 
+    void rebuildMinHeight() {
+        std::vector<Node*> nodes;
+        inorderHelper(root, nodes);
+        root = buildMinBST(nodes, 0, nodes.size() - 1);
+    }
+    void printHPtree() {
+        printLevelOrder(root);
+    }
+
     int height() {
         if (root == nullptr) return 0;  // 空樹
-
         std::queue<Node*> q;
         q.push(root);
         int h = 0;
-
         while (!q.empty()) {
             int levelSize = q.size();
             h++;  // 每跑一次 while = 一層 = 高度 +1
@@ -279,7 +318,9 @@ class Pokemon {
   int max_hp;
   
  public:
-  Pokemon() : bst(), raichus(), max_hp(0) {}
+  Pokemon() {
+    max_hp = 0;
+  }
   void reSet() {
     bst.clear();
     raichus.clear();
@@ -289,14 +330,18 @@ class Pokemon {
   }
   bool fetchFile() {
     std::ifstream in;
-    std:: cout << "Input a file number [0: quit]: ";
-    std::string file_num = ReadInput();
-    if (file_num == "0") return false;
-    std::string txt_path = "input" + file_num + ".txt";
-    in.open(txt_path);
-    if(in.fail()){ 
-      std::cout << std::endl << "### " << txt_path + " does not exist! ###" << std::endl;
-      return false; 
+    while (1) {
+      std:: cout << "Input a file number [0: quit]: ";
+      std::string file_num = ReadInput();
+      if (file_num == "0") return false;
+      std::string txt_path = "input" + file_num + ".txt";
+      in.open(txt_path);
+      if(in.fail()){ 
+        std::cout << std::endl << "### " << txt_path + " does not exist! ###" << std::endl;
+        printf("\n");
+        continue;
+      }
+      break;
     }
     std::string title;
     std::getline(in, title);
@@ -377,16 +422,16 @@ void taskTwo() { // done
     if (std::cin.fail()) { // 檢查輸入是否失敗
         std::cin.clear();              
         std::cin.ignore(10000, '\n'); 
-        std::cout << "\n### It is NOT a non-negative integer. ###\nTry again:"; 
+        std::cout << "\n### It is NOT a non-negative integer. ###\nTry again: "; 
         continue;;
     }
     if (low > (max_hp * 2)) {
-      std::cout << "\n### It is NOT in [0," << max_hp * 2 << "]. ###\nTry again:";
+      std::cout << "\n### It is NOT in [0," << max_hp * 2 << "]. ###\nTry again: ";
       continue;
     }
     if (low >= 0) break;
     if (low < 0) {
-      std::cout << "\n### It is NOT a non-negative integer. ###\nTry again:";
+      std::cout << "\n### It is NOT a non-negative integer. ###\nTry again: ";
     }
   }
   while (1) {
@@ -395,16 +440,16 @@ void taskTwo() { // done
     if (std::cin.fail()) { // 檢查輸入是否失敗
         std::cin.clear();              
         std::cin.ignore(10000, '\n'); 
-        std::cout << "\n### It is NOT a non-negative integer. ###\nTry again:"; 
+        std::cout << "\n### It is NOT a non-negative integer. ###\nTry again: "; 
         continue;;
     }
     if (high > (max_hp * 2)) {
-      std::cout << "\n### It is NOT in [0," << max_hp * 2 << "]. ###\nTry again:";
+      std::cout << "\n### It is NOT in [0," << max_hp * 2 << "]. ###\nTry again: ";
       continue;
     }
     if (high >= 0) break;
     if (high < 0) {
-      std::cout << "\n### It is NOT a non-negative integer. ###\nTry again:";
+      std::cout << "\n### It is NOT a non-negative integer. ###\nTry again: ";
     }
   }
   if (low > high) {
@@ -416,20 +461,21 @@ void taskTwo() { // done
   std::vector<Node*> result;
   int visitedCount = 0;
   bst.rangeSearchIterative(low, high, result, visitedCount);
-  for (int i = 0; i < result.size() - 1; i++) {
-    for (int j = 0; j < result.size() - 1 - i; j++) {
+  
+  
+  if (result.empty()) {
+    std::cout << "No record was found in the specified range." << std::endl;
+  } else {
+    for (int i = 0; i < result.size() - 1; i++) {
+      for (int j = 0; j < result.size() - 1 - i; j++) {
         if (result[j]->hp < result[j+1]->hp) {
             // 交換
             Node* temp = result[j];
             result[j] = result[j+1];
             result[j+1] = temp;
         }
-    }
-  }
-  
-  if (result.empty()) {
-    std::cout << "No record was found in the specified range." << std::endl;
-  } else {
+     }
+   }
     std::cout << "\t#\t" << std::setw(19) << std::left << "Name" << "\t" << std::setw(10) << std::left
               <<  "Type 1" << "\t" << "Total" << "\t" << "HP" << "\t" << "Attack" << "\t" << "Defense"; 
     std::cout << std::endl;
@@ -489,11 +535,11 @@ void taskThree(bool deleteMin) {
   std::cout << "HP tree height = " << bst.height() << std::endl;
 }
 
-
+void taskFour() {
+  bst.rebuildMinHeight();
+  bst.printHPtree();
+}
 };
-
-
-
 int main() {
  
   Pokemon pokemon;
@@ -503,9 +549,10 @@ int main() {
     int cmd;
     std::cin >> cmd;
     if (std::cin.fail()) { // 檢查輸入是否失敗
-        std::cin.clear();              
-        std::cin.ignore(10000, '\n');  
-        return 0;
+      std::cin.clear();              
+      std::cin.ignore(10000, '\n');  
+      std::cout << "\nCommand does not exist!\n\n";
+      continue;
     } else if (cmd == 0 ){
       return 0;
     } else if (cmd == 1) {
@@ -521,7 +568,7 @@ int main() {
         continue;
       }
       pokemon.taskTwo();
-      deleteMin = true;
+      
     } else if (cmd == 3) {
       if (pokemon.getTreeHeight() == 0) {
         std::cout << "\n----- Execute Mission 1 first! -----\n\n";
@@ -536,6 +583,9 @@ int main() {
         std::cout << "\n----- Execute Mission 1 first! -----\n\n";
         continue;
       }
+      deleteMin = true;
+      printf("\n");
+      pokemon.taskFour();
     
     } else {
       printf("\n");
